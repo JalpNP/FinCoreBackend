@@ -1,3 +1,6 @@
+python-3.10
 fastapi
 uvicorn
 pydantic
+pymongo
+python-dotenv
