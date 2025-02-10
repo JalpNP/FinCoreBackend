@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Form, File, UploadFile
 from database import users_collection, companies_collection, financial_years_collection
 from schemas import UserCreate, UserLogin, FinancialYearCreate
 import hashlib
+from datetime import datetime
 import os
 import shutil
 from uuid import uuid4
@@ -13,6 +14,11 @@ auth_router = APIRouter()
 
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
+
+def format_date(date_value):
+    if isinstance(date_value, str):
+        date_value = datetime.strptime(date_value, "%Y-%m-%d")
+    return date_value.strftime("%d/%m/%Y")
 
 @auth_router.post("/register")
 async def register_user(user: UserCreate):
@@ -76,20 +82,18 @@ async def add_financial_year(financial_year: FinancialYearCreate):
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
 
-    financial_years = company.get("financial_years", [])
-    year_no = len(financial_years) + 1
+    formatted_start_date = format_date(financial_year.start_of_year)
+    formatted_end_date = format_date(financial_year.end_of_year)
 
     new_year = {
-        "year_no": year_no,
-        "start_of_year": financial_year.start_of_year.isoformat(),
-        "end_of_year": financial_year.end_of_year.isoformat(),
+        "company_name": financial_year.company_name,
+        "year_no": len(company.get("financial_years", [])) + 1,
+        "start_of_year": formatted_start_date,
+        "end_of_year": formatted_end_date,
         "fy": financial_year.fy,
     }
 
-    companies_collection.update_one(
-        {"name": financial_year.company_name},
-        {"$push": {"financial_years": new_year}}
-    )
+    financial_years_collection.insert_one(new_year)
 
     return {"message": "Financial year added successfully"}
 
